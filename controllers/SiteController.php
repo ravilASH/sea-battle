@@ -32,7 +32,7 @@ class SiteController extends Controller
      */
     public function actionIndex()
     {
-        return $this->redirect('?r=site/about');
+        return $this->redirect('?r=game/index');
     }
 
     /**
