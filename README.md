@@ -1,2 +1,2 @@
 # sea-battle
-Морской бой
+Прототип игры морской бой для группы https://vk.com/phpisawesome 
