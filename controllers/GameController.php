@@ -2,6 +2,7 @@
 
 namespace app\controllers;
 
+use app\models\User;
 use Yii;
 use app\models\Game;
 use yii\data\ActiveDataProvider;
@@ -54,12 +55,63 @@ class GameController extends Controller
         $model = new Game();
 
         if ($model->load(Yii::$app->request->post()) && $model->save()) {
-            return $this->redirect(['?r=game/index', 'id' => $model->id]);
+            return $this->redirect(['?r=game/index&id'.$model->id]);
         }
 
         return $this->render('create', [
             'model' => $model,
         ]);
+    }
+
+    /**
+     * @param $id
+     * @return mixed
+     */
+    public function actionStart($id)
+    {
+        $game = Game::findOne($id);
+        if (!$game) {
+            throw new NotFoundHttpException('игра не найдена');
+        }
+
+        if ($game->isNeedToFillBySide()) {
+            return $this->redirect('?r=game/fill-field&id='.$game->id);
+        }
+        die('to do играем в игру');
+    }
+
+    /**
+     * @param $id
+     * @return mixed
+     */
+    public function actionFillField($id)
+    {
+        $data= Yii::$app->request->post('coordinates');
+
+        $game = Game::findOne($id);
+        if (!$game) {
+            throw new NotFoundHttpException('игра не найдена');
+        }
+
+        // нас редиректнули сюда значит нуно отобразить поле для заполнения
+        if (!$data) {
+            return $this->render('fill', [
+                'model' => $game,
+            ]);
+        }
+
+        // если пришли данные нужно отдать их в игру
+        if ($game->isNeedToFillBySide() && $data) {
+            // todo сделать валидацию входных данных
+            $game->fillSide($data);
+        }
+
+        // если еще надо заполнить что-то идем на второй круг
+        if ($game->isNeedToFillBySide()) {
+            return $this->redirect('?r=game/fill-field&id='.$game->id);
+        }
+
+        return $this->redirect('?r=game/start&id='.$game->id);
     }
 
     /**
