@@ -20,6 +20,11 @@ class Game extends \yii\db\ActiveRecord
     const SIDE_LEFT = 'left';
     const SIDE_RIGHT = 'right';
 
+    /**
+     * Масив, где ключи - сторогы а значения экземпляры класса Field
+     * @var $fields array
+     */
+    protected $fields;
 
     /**
      * {@inheritdoc}
@@ -86,6 +91,27 @@ class Game extends \yii\db\ActiveRecord
     }
 
     /**
+     * Отдает текущее поле, по которому палит текущий пользователь
+     */
+    public function getAttackedField()
+    {
+        return $this->getField($this->getAttackedSide());
+    }
+
+    /**
+     * Отдает название стороны, по которой палит текущий пользователь
+     */
+    public function getAttackedSide()
+    {
+        switch ($this->attack_side){
+            case self::SIDE_RIGHT;
+                return self::SIDE_LEFT;
+            case self::SIDE_LEFT;
+                return self::SIDE_RIGHT;
+        }
+    }
+
+    /**
      * @return \yii\db\ActiveQuery
      */
     public function getLeftGamer()
@@ -119,13 +145,57 @@ class Game extends \yii\db\ActiveRecord
         return $this->hasMany(Figure::className(), ['game_id' => 'id'])->onCondition(['side'=>self::SIDE_RIGHT]);
     }
 
-    public function getField ($side)
+    public function getSideDecks($side)
     {
-        return null;
+        switch ($side){
+            case self::SIDE_RIGHT;
+                return $this->rightDecks;
+            case self::SIDE_LEFT;
+                return $this->leftDecks;
+        }
     }
 
     /**
-     * Нуждается ли игра в заполении
+     * @return \yii\db\ActiveQuery
+     */
+    public function getSteps()
+    {
+        return $this->hasMany(Step::className(), ['game_id' => 'id'])->inverseOf('game');
+    }
+
+    public function getLeftSteps()
+    {
+        return $this->hasMany(Step::className(), ['game_id' => 'id'])->onCondition(['side'=>self::SIDE_LEFT]);
+    }
+
+    public function getRightSteps()
+    {
+        return $this->hasMany(Step::className(), ['game_id' => 'id'])->onCondition(['side'=>self::SIDE_RIGHT]);
+    }
+
+    public function getSideSteps($side)
+    {
+        switch ($side){
+            case self::SIDE_RIGHT;
+                return $this->rightSteps;
+            case self::SIDE_LEFT;
+                return $this->leftSteps;
+        }
+    }
+
+    public function getField($side) : Field
+    {
+
+        if ($this->fields[$side] ?? null instanceof Field) {
+            return $this->fields[$side];
+        }
+        // если мы раньше не обращались к полю - его надо сформировать из палуб и прошлых выстрелов
+        $this->fields[$side] = new Field(['decks' => $this->getSideDecks($side), 'steps' => $this->getSideSteps($side)]);
+        return $this->fields[$side];
+    }
+
+    /**
+     * Нуждается ли игра в заполении (с какой стороны)
      * @return string|false
      */
     public function isNeedToFillBySide()
@@ -157,5 +227,34 @@ class Game extends \yii\db\ActiveRecord
         $this->attack_side = $this->getNext();
         $this->save();
         $this->refresh();
+    }
+
+    /**
+     *
+     * @param $data  - входящие даные
+     */
+    public function step($data){
+        $coord = array_key_first($data);
+        $field = $this->getAttackedField();
+        $newState = $field->getCell($coord)->applyRule(
+            [
+                Cell::EMPTY_STATE => Cell::MISS_STATE,
+                Cell::DECK_STATE => Cell::HIT_STATE
+            ]
+        );
+
+        //создание нового хода
+        $step = new Step();
+        $step->coordinates = $coord;
+        $step->side = $this->getAttackedSide();
+        $step->game_id = $this->id;
+        $step->result = $newState;
+        $step->save();
+
+        // если не попал - ход отдается другому игроку
+        if (in_array($newState, [Cell::MISS_STATE])) {
+            $this->attack_side = $this->getNext();
+            $this->save();
+        }
     }
 }

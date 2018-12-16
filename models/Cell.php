@@ -42,4 +42,15 @@ class Cell
     {
         return $this->coordinates;
     }
+
+    /**
+     * Применяет правило перехода по статусам и возвращает новый статус
+     */
+    public function applyRule($rule){
+        if (!array_key_exists($this->state, $rule)){
+            throw new \Exception('Данное правило не содержит соответсвующего перехода');
+        }
+        $this->state = $rule[$this->state];
+        return $this->state;
+    }
 }

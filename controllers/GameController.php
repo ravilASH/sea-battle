@@ -55,7 +55,7 @@ class GameController extends Controller
         $model = new Game();
 
         if ($model->load(Yii::$app->request->post()) && $model->save()) {
-            return $this->redirect(['?r=game/index&id'.$model->id]);
+            return $this->redirect('?r=game/index&id'.$model->id);
         }
 
         return $this->render('create', [
@@ -77,12 +77,25 @@ class GameController extends Controller
         if ($game->isNeedToFillBySide()) {
             return $this->redirect('?r=game/fill-field&id='.$game->id);
         }
-        die('to do играем в игру');
+
+        $data = Yii::$app->request->post('step');
+        if ($data) {
+            $game->step($data);
+        }
+
+        // todo здесь надо сделать не произошло ли победы одного из игроков
+
+        return $this->render('game', [
+            'field' => $game->getAttackedField(),
+            'user' => $game->getCurrentUser(),
+            'id' => $game->id,
+        ]);
     }
 
     /**
      * @param $id
      * @return mixed
+     * @throws NotFoundHttpException
      */
     public function actionFillField($id)
     {
